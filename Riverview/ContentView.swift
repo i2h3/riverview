@@ -23,6 +23,8 @@ struct ContentView: View {
                     MessageInspector(entry: selectedEntry)
                         .inspectorColumnWidth(min: 240, ideal: 320, max: 500)
                 }
+                .focusedSceneValue(\.viewMode, $mode)
+                .focusedSceneValue(\.journalStore, store)
         }
         .onReceive(NotificationCenter.default.publisher(for: .riverviewOpenDirectory)) { _ in
             importing = true
@@ -74,6 +76,7 @@ struct ContentView: View {
             } label: {
                 Label("Open Directory…", systemImage: "folder")
             }
+            .help("Open a directory containing Rivers log files")
         }
 
         ToolbarItem {
@@ -83,6 +86,7 @@ struct ContentView: View {
                 Label("Reload", systemImage: "arrow.clockwise")
             }
             .disabled(store.directory == nil)
+            .help("Reload messages from the current directory")
         }
 
         ToolbarItem {
@@ -92,6 +96,7 @@ struct ContentView: View {
                 }
             }
             .pickerStyle(.segmented)
+            .help("Switch between outline and flat views")
         }
     }
 
