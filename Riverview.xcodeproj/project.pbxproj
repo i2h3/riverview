@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AA2D5ED12F9F4B5000772E2D /* Rivers in Frameworks */ = {isa = PBXBuildFile; productRef = AA2D5ED02F9F4B5000772E2D /* Rivers */; };
+		AAFF026F2FAA3EB600660EA8 /* Rivers in Frameworks */ = {isa = PBXBuildFile; productRef = AAFF026E2FAA3EB600660EA8 /* Rivers */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,7 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA2D5ED12F9F4B5000772E2D /* Rivers in Frameworks */,
+				AAFF026F2FAA3EB600660EA8 /* Rivers in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -80,7 +80,7 @@
 			);
 			name = Riverview;
 			packageProductDependencies = (
-				AA2D5ED02F9F4B5000772E2D /* Rivers */,
+				AAFF026E2FAA3EB600660EA8 /* Rivers */,
 			);
 			productName = Riverview;
 			productReference = AA2D5E0A2F9EA89000772E2D /* Riverview.app */;
@@ -111,7 +111,7 @@
 			mainGroup = AA2D5E012F9EA89000772E2D;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				AA2D5EB22F9F4B2E00772E2D /* XCLocalSwiftPackageReference "../Rivers" */,
+				AAFF026D2FAA3EB600660EA8 /* XCRemoteSwiftPackageReference "rivers" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA2D5E0B2F9EA89000772E2D /* Products */;
@@ -343,17 +343,21 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		AA2D5EB22F9F4B2E00772E2D /* XCLocalSwiftPackageReference "../Rivers" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Rivers;
+/* Begin XCRemoteSwiftPackageReference section */
+		AAFF026D2FAA3EB600660EA8 /* XCRemoteSwiftPackageReference "rivers" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/i2h3/rivers.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
 		};
-/* End XCLocalSwiftPackageReference section */
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		AA2D5ED02F9F4B5000772E2D /* Rivers */ = {
+		AAFF026E2FAA3EB600660EA8 /* Rivers */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA2D5EB22F9F4B2E00772E2D /* XCLocalSwiftPackageReference "../Rivers" */;
+			package = AAFF026D2FAA3EB600660EA8 /* XCRemoteSwiftPackageReference "rivers" */;
 			productName = Rivers;
 		};
 /* End XCSwiftPackageProductDependency section */

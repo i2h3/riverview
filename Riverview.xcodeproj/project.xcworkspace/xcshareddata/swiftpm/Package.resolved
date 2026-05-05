@@ -1,0 +1,15 @@
+{
+  "originHash" : "5ad0681a0e174e0d0f4465f182a5df1dcd5770324fb4448049cce93568f208ac",
+  "pins" : [
+    {
+      "identity" : "rivers",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/i2h3/rivers.git",
+      "state" : {
+        "revision" : "848ff4f356001fd6fbb3997f33c2f87adb02e178",
+        "version" : "2.0.1"
+      }
+    }
+  ],
+  "version" : 3
+}

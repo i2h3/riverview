@@ -13,10 +13,10 @@ func formatted(_ date: Date) -> String {
 ///
 /// Render a `Message.arguments` dictionary as a single-line `key=value key=value …` string in deterministic order. Used wherever a compact preview of arguments is shown next to a message label, e.g. in `MessageRow` and the Arguments column of `MessageTableView`.
 ///
-func argumentsPreview(_ arguments: [String: String]) -> String {
+func argumentsPreview(_ arguments: [String: String?]) -> String {
     arguments
         .sorted { $0.key < $1.key }
-        .map { "\($0.key)=\($0.value)" }
+        .map { "\($0.key)=\($0.value ?? "nil")" }
         .joined(separator: " ")
 }
 

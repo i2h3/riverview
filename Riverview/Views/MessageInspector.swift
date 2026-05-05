@@ -56,7 +56,8 @@ struct MessageInspector: View {
                                         Text(key)
                                             .font(.system(.caption, design: .monospaced))
                                             .foregroundStyle(.secondary)
-                                        Text(value)
+
+                                        Text(value ?? "nil")
                                             .font(.system(.caption, design: .monospaced))
                                             .textSelection(.enabled)
                                     }

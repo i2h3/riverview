@@ -64,7 +64,11 @@ final class JournalStore {
             }
 
             return entry.message.arguments.contains { _, value in
-                value.lowercased().contains(query)
+                guard let value else {
+                    return false
+                }
+
+                return value.lowercased().contains(query)
             }
         }
     }
