@@ -4,11 +4,30 @@
 import Foundation
 import Rivers
 
+///
+/// One node in the activity tree displayed by `MessageOutlineView`. Built from a flat `[LoadedMessage]` by `tree(from:)` so SwiftUI's `OutlineGroup` can render the hierarchy directly.
+///
+/// A node may stand for either an actual message (`entry` is non-`nil`) or a synthetic ancestor introduced because some descendant was logged but the activity itself produced no message (`entry` is `nil`). `MessageOutlineNodeRow` distinguishes the two visually.
+///
 struct ActivityNode: Identifiable {
+    ///
+    /// The activity this node corresponds to.
+    ///
     let activity: ActivityID
+
+    ///
+    /// The message recorded for this activity, or `nil` if it is a synthetic ancestor introduced solely so its descendants have a parent.
+    ///
     var entry: LoadedMessage?
+
+    ///
+    /// Child nodes, sorted chronologically.
+    ///
     var children: [ActivityNode]
 
+    ///
+    /// Stable identifier for SwiftUI selection. Real entries reuse `LoadedMessage.id`; synthetic nodes derive a deterministic negative id from the activity path so it never collides with entry ids.
+    ///
     var id: Int {
         if let entry {
             return entry.id
@@ -20,10 +39,16 @@ struct ActivityNode: Identifiable {
         return raw >= 0 ? -raw - 1 : raw
     }
 
+    ///
+    /// `nil` when there are no children, otherwise `children`. `OutlineGroup` requires a `nil`-able children key path to render leaves without a disclosure indicator.
+    ///
     var optionalChildren: [ActivityNode]? {
         children.isEmpty ? nil : children
     }
 
+    ///
+    /// Build the forest of activities implied by `entries`. Activities are grouped by their `ActivityID.path`; ancestor paths missing from the data are filled in with synthetic empty-`entry` nodes so the tree is always well-formed. Each level is sorted chronologically (earliest message first).
+    ///
     static func tree(from entries: [LoadedMessage]) -> [ActivityNode] {
         var entriesByPath: [[UInt32]: [LoadedMessage]] = [:]
         var allPaths: Set<[UInt32]> = []

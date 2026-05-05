@@ -5,9 +5,11 @@ import Foundation
 import Rivers
 
 ///
-/// Tails the active `log.jsonl` of a journal directory and decodes each newly-appended line into a `Message`. The owner provides callbacks that run on the main actor; rotation events trigger a full rescan request rather than being handled in-watcher.
+/// Tails the active `log.jsonl` of a journal directory and decodes each newly-appended line into a `Message`. Owned by `JournalStore`, which provides callbacks that run on the main actor: `onAppend` for each new message, and `onRotate` when the file is renamed/deleted (the store responds with a full rescan).
 ///
-final class JournalWatcher: @unchecked Sendable {
+/// Internally the watcher runs on a private `DispatchQueue` and uses two `DispatchSourceFileSystemObject` sources: one watching the active log file for writes/rotation, and one watching the directory so a freshly created log file is picked up after rotation.
+///
+nonisolated final class JournalWatcher: @unchecked Sendable {
     private let directory: URL
     private let queue: DispatchQueue
     private let onAppend: @MainActor (Message) -> Void
@@ -21,6 +23,9 @@ final class JournalWatcher: @unchecked Sendable {
     private var carry: Data = .init()
     private let decoder = JSONDecoder()
 
+    ///
+    /// Create a watcher for the journal at `directory`. The callbacks are invoked on the main actor for every newly appended message and whenever the active log file rotates.
+    ///
     init(directory: URL,
          onAppend: @escaping @MainActor (Message) -> Void,
          onRotate: @escaping @MainActor () -> Void)
@@ -31,6 +36,9 @@ final class JournalWatcher: @unchecked Sendable {
         self.onRotate = onRotate
     }
 
+    ///
+    /// Begin tailing. `initialOffset` is the byte offset to start reading from in the active log file; `JournalStore` passes the current file size so existing content (already loaded via `FileJournalReader`) is not redelivered.
+    ///
     func start(initialOffset: UInt64) {
         queue.async { [weak self] in
             self?.openFile(initialOffset: initialOffset)
@@ -38,6 +46,9 @@ final class JournalWatcher: @unchecked Sendable {
         }
     }
 
+    ///
+    /// Cancel both dispatch sources and close their file descriptors. Safe to call repeatedly.
+    ///
     func stop() {
         queue.async { [weak self] in
             self?.closeFile()

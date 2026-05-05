@@ -3,11 +3,37 @@
 
 import SwiftUI
 
+///
+/// Root scene of the Riverview app. Owns the singleton `JournalStore` (one journal per window for now) and adds the menu commands that operate on whichever `ContentView` is currently focused.
+///
+/// All inter-view state — view mode, sidebar visibility, inspector visibility, the active journal — is published by `ContentView` via `.focusedSceneValue(...)` and read here through `@FocusedBinding`/`@FocusedValue`. That is what lets a global menu item act on the focused window without holding its own copy of the state.
+///
 @main
 struct RiverviewApp: App {
+    ///
+    /// The journal currently displayed in the (single) window. Replaced when the user opens a different directory; observed reactively because `JournalStore` is `@Observable`.
+    ///
     @State private var store = JournalStore()
+
+    ///
+    /// Binding to the focused window's `ViewMode`, supplied by `ContentView`. Drives the View ▸ View Mode menu picker.
+    ///
     @FocusedBinding(\.viewMode) private var focusedViewMode: ViewMode?
+
+    ///
+    /// The `JournalStore` of the focused window, used to enable/disable and trigger commands such as Reload.
+    ///
     @FocusedValue(\.journalStore) private var focusedStore: JournalStore?
+
+    ///
+    /// Binding to the focused window's sidebar visibility. Drives the View ▸ Show/Hide Sidebar menu item.
+    ///
+    @FocusedBinding(\.columnVisibility) private var focusedColumnVisibility: NavigationSplitViewVisibility?
+
+    ///
+    /// Binding to whether the focused window's inspector pane is presented. Drives the View ▸ Show/Hide Inspector menu item.
+    ///
+    @FocusedBinding(\.inspectorPresented) private var focusedInspectorPresented: Bool?
 
     var body: some Scene {
         WindowGroup {
@@ -38,35 +64,42 @@ struct RiverviewApp: App {
                 )) {
                     ForEach(ViewMode.allCases) { value in
                         Label(value.label, systemImage: value.systemImage).tag(value)
+                            .keyboardShortcut(value.keyboardShortcut, modifiers: .command)
                     }
                 }
                 .disabled(focusedViewMode == nil)
                 Divider()
+
+                Button(sidebarMenuTitle) {
+                    if let current = focusedColumnVisibility {
+                        withAnimation {
+                            focusedColumnVisibility = (current == .detailOnly) ? .all : .detailOnly
+                        }
+                    }
+                }
+                .keyboardShortcut("s", modifiers: [.command, .control])
+                .disabled(focusedColumnVisibility == nil)
+
+                Button(inspectorMenuTitle) {
+                    focusedInspectorPresented?.toggle()
+                }
+                .keyboardShortcut("i", modifiers: [.command, .control])
+                .disabled(focusedInspectorPresented == nil)
             }
         }
     }
-}
 
-extension Notification.Name {
-    static let riverviewOpenDirectory = Notification.Name("Riverview.OpenDirectory")
-}
-
-private struct ViewModeFocusedValueKey: FocusedValueKey {
-    typealias Value = Binding<ViewMode>
-}
-
-private struct JournalStoreFocusedValueKey: FocusedValueKey {
-    typealias Value = JournalStore
-}
-
-extension FocusedValues {
-    var viewMode: Binding<ViewMode>? {
-        get { self[ViewModeFocusedValueKey.self] }
-        set { self[ViewModeFocusedValueKey.self] = newValue }
+    ///
+    /// Menu-item title that flips between "Show Sidebar" and "Hide Sidebar" depending on the focused window's current state, mirroring how Finder and Mail label theirs.
+    ///
+    private var sidebarMenuTitle: String {
+        focusedColumnVisibility == .detailOnly ? "Show Sidebar" : "Hide Sidebar"
     }
 
-    var journalStore: JournalStore? {
-        get { self[JournalStoreFocusedValueKey.self] }
-        set { self[JournalStoreFocusedValueKey.self] = newValue }
+    ///
+    /// Menu-item title for the inspector toggle, matching `sidebarMenuTitle`'s show/hide convention.
+    ///
+    private var inspectorMenuTitle: String {
+        (focusedInspectorPresented ?? false) ? "Hide Inspector" : "Show Inspector"
     }
 }

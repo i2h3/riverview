@@ -5,38 +5,42 @@ import Foundation
 import Observation
 import Rivers
 
-enum ViewMode: String, CaseIterable, Identifiable {
-    case outline
-    case flat
-
-    var id: String {
-        rawValue
-    }
-
-    var label: String {
-        switch self {
-            case .outline: "Outline"
-            case .flat: "Flat"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-            case .outline: "list.bullet.indent"
-            case .flat: "list.bullet"
-        }
-    }
-}
-
+///
+/// Source of truth for the journal currently being viewed. `RiverviewApp` owns one instance and hands it to `ContentView`, which projects it onto the sidebar (`FilterSidebar`), the three view modes (`MessageOutlineView`, `MessageTableView`, `TimelineView`), and the inspector (`MessageInspector`).
+///
+/// The store is `@Observable` so SwiftUI re-renders dependent views automatically when entries arrive. New messages can come from two directions: an initial bulk read of the directory by `Rivers.FileJournalReader`, and live appends tailed by `JournalWatcher`. Both funnel into `appendIfNew(_:)` which assigns a monotonic id (used by `LoadedMessage`) and inserts into `entries` while keeping it sorted by date.
+///
 @Observable
 @MainActor
 final class JournalStore {
+    ///
+    /// The directory currently being watched, or `nil` if no journal is open. Set by `open(directory:)`; cleared by `close()`.
+    ///
     private(set) var directory: URL?
+
+    ///
+    /// All messages loaded from the journal so far, kept in chronological order. Indexed by `LoadedMessage.id` for selection.
+    ///
     private(set) var entries: [LoadedMessage] = []
+
+    ///
+    /// `true` when `JournalWatcher` is actively tailing `log.jsonl`. Surfaced as the green/grey indicator in `FilterSidebar`.
+    ///
     private(set) var isWatching: Bool = false
+
+    ///
+    /// Most recent error message, e.g. from a failed read. Displayed in `FilterSidebar`.
+    ///
     private(set) var lastError: String?
 
+    ///
+    /// Levels the user has enabled in `FilterSidebar`. Drives the dimming behaviour in every view mode and the badge filtering in the sidebar.
+    ///
     var levelFilter: Set<Level> = [.debug, .info, .error]
+
+    ///
+    /// Free-text label/argument query entered in `FilterSidebar`. Applied by `filteredEntries` (case-insensitive substring match).
+    ///
     var labelQuery: String = ""
 
     private var nextID: Int = 0
@@ -44,6 +48,9 @@ final class JournalStore {
     private var seenKeys: Set<String> = []
     private var securityScopedURL: URL?
 
+    ///
+    /// Entries that match `labelQuery` (or all entries when the query is empty). The level filter is *not* applied here — views render filtered-out levels at lower opacity instead so structural context is preserved.
+    ///
     var filteredEntries: [LoadedMessage] {
         let query = labelQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
@@ -62,14 +69,23 @@ final class JournalStore {
         }
     }
 
+    ///
+    /// Entries that pass *both* the label query and the level filter. Used by `FilterSidebar` to display the "matched / total" status.
+    ///
     var highlightedEntries: [LoadedMessage] {
         filteredEntries.filter { levelFilter.contains($0.message.level) }
     }
 
+    ///
+    /// `filteredEntries` arranged into a tree by activity path, ready for `MessageOutlineView` to display via `OutlineGroup`.
+    ///
     var activityRoots: [ActivityNode] {
         ActivityNode.tree(from: filteredEntries)
     }
 
+    ///
+    /// Open the directory at `url`: stops any existing watcher, claims security-scoped access, performs an initial read of all `*.jsonl` files via `Rivers.FileJournalReader`, then starts a `JournalWatcher` to tail subsequent appends.
+    ///
     func open(directory url: URL) {
         stopWatching()
         releaseSecurityScopedAccess()
@@ -88,17 +104,16 @@ final class JournalStore {
         startWatching()
     }
 
+    ///
+    /// Surface an error message to the UI. Called by `ContentView` when the SwiftUI `.fileImporter` reports a failure.
+    ///
     func setError(_ message: String) {
         lastError = message
     }
 
-    private func releaseSecurityScopedAccess() {
-        if let url = securityScopedURL {
-            url.stopAccessingSecurityScopedResource()
-            securityScopedURL = nil
-        }
-    }
-
+    ///
+    /// Re-read the current directory from scratch. Backs the Reload menu item and toolbar button.
+    ///
     func reload() {
         guard directory != nil else { return }
         stopWatching()
@@ -109,6 +124,9 @@ final class JournalStore {
         startWatching()
     }
 
+    ///
+    /// Stop watching, drop all entries, and forget the directory. Currently unused by the UI but kept for symmetry with `open(directory:)`.
+    ///
     func close() {
         stopWatching()
         releaseSecurityScopedAccess()
@@ -116,6 +134,13 @@ final class JournalStore {
         entries.removeAll()
         seenKeys.removeAll()
         nextID = 0
+    }
+
+    private func releaseSecurityScopedAccess() {
+        if let url = securityScopedURL {
+            url.stopAccessingSecurityScopedResource()
+            securityScopedURL = nil
+        }
     }
 
     private func loadSnapshot() {

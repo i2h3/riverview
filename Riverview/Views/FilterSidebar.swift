@@ -5,7 +5,15 @@ import AppKit
 import Rivers
 import SwiftUI
 
+///
+/// Left-hand sidebar of `ContentView`. Surfaces three pieces of user-facing state held by `JournalStore`: the free-text label/argument query (`labelQuery`), the level filter (`levelFilter`), and a status panel showing match counts, the watcher state, and the open directory.
+///
+/// All controls are bindings into the same `JournalStore` instance — there is no separate sidebar state, so changes immediately reflect in every view mode and the inspector.
+///
 struct FilterSidebar: View {
+    ///
+    /// The journal store driving the current window. Bound so the search field and level toggles write straight back to the store.
+    ///
     @Bindable var store: JournalStore
 
     var body: some View {
@@ -62,6 +70,9 @@ struct FilterSidebar: View {
         .formStyle(.grouped)
     }
 
+    ///
+    /// Build a `Bool` binding into a single membership of `store.levelFilter` so each row's `Toggle` reads and mutates the right element of the set.
+    ///
     private func binding(for level: Level) -> Binding<Bool> {
         Binding(
             get: { store.levelFilter.contains(level) },
@@ -75,6 +86,9 @@ struct FilterSidebar: View {
         )
     }
 
+    ///
+    /// Display name for a level next to its `LevelBadge` in the toggle row.
+    ///
     private func name(for level: Level) -> String {
         switch level {
             case .debug: "Debug"

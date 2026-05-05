@@ -4,7 +4,15 @@
 import Rivers
 import SwiftUI
 
+///
+/// A small, capsule-shaped badge displaying a `Level` ("DEBUG", "INFO", "ERROR") in its associated color. Used wherever a level needs to be shown compactly: `MessageRow`, `MessageTableView`, `MessageInspector`, and `FilterSidebar`.
+///
+/// The badge encapsulates the canonical color and label mapping for a level so the rest of the app stays consistent. Bars in `TimelineView` use the same color palette but render their own shapes.
+///
 struct LevelBadge: View {
+    ///
+    /// The level to display.
+    ///
     let level: Level
 
     var body: some View {
@@ -16,6 +24,9 @@ struct LevelBadge: View {
             .background(color, in: Capsule())
     }
 
+    ///
+    /// The uppercase string shown inside the badge.
+    ///
     private var label: String {
         switch level {
             case .debug: "DEBUG"
@@ -24,21 +35,14 @@ struct LevelBadge: View {
         }
     }
 
+    ///
+    /// The fill color of the badge. Mirrored by `TimelineActivityBar` for its bars so the timeline and other views agree visually.
+    ///
     private var color: Color {
         switch level {
             case .debug: .gray
             case .info: .blue
             case .error: .red
-        }
-    }
-}
-
-extension Level {
-    var sortRank: Int {
-        switch self {
-            case .debug: 0
-            case .info: 1
-            case .error: 2
         }
     }
 }
