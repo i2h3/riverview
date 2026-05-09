@@ -9,7 +9,7 @@ import Rivers
 ///
 /// Internally the watcher runs on a private `DispatchQueue` and uses two `DispatchSourceFileSystemObject` sources: one watching the active log file for writes/rotation, and one watching the directory so a freshly created log file is picked up after rotation.
 ///
-nonisolated final class JournalWatcher: @unchecked Sendable {
+final nonisolated class JournalWatcher: @unchecked Sendable {
     private let directory: URL
     private let queue: DispatchQueue
     private let onAppend: @MainActor (Message) -> Void
@@ -59,8 +59,12 @@ nonisolated final class JournalWatcher: @unchecked Sendable {
     deinit {
         fileSource?.cancel()
         directorySource?.cancel()
-        if fileDescriptor >= 0 { close(fileDescriptor) }
-        if directoryDescriptor >= 0 { close(directoryDescriptor) }
+        if fileDescriptor >= 0 {
+            close(fileDescriptor)
+        }
+        if directoryDescriptor >= 0 {
+            close(directoryDescriptor)
+        }
     }
 
     private var activeURL: URL {
@@ -88,7 +92,9 @@ nonisolated final class JournalWatcher: @unchecked Sendable {
         )
 
         source.setEventHandler { [weak self] in
-            guard let self else { return }
+            guard let self else {
+                return
+            }
 
             let event = source.data
 
@@ -154,7 +160,9 @@ nonisolated final class JournalWatcher: @unchecked Sendable {
     }
 
     private func drain() {
-        guard fileDescriptor >= 0 else { return }
+        guard fileDescriptor >= 0 else {
+            return
+        }
 
         let handle = FileHandle(fileDescriptor: fileDescriptor, closeOnDealloc: false)
 
@@ -166,7 +174,9 @@ nonisolated final class JournalWatcher: @unchecked Sendable {
 
         let data = handle.availableData
 
-        guard !data.isEmpty else { return }
+        guard !data.isEmpty else {
+            return
+        }
 
         offset += UInt64(data.count)
 

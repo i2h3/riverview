@@ -13,27 +13,32 @@ struct RiverviewApp: App {
     ///
     /// The journal currently displayed in the (single) window. Replaced when the user opens a different directory; observed reactively because `JournalStore` is `@Observable`.
     ///
-    @State private var store = JournalStore()
+    @State
+    private var store = JournalStore()
 
     ///
     /// Binding to the focused window's `ViewMode`, supplied by `ContentView`. Drives the View ▸ View Mode menu picker.
     ///
-    @FocusedBinding(\.viewMode) private var focusedViewMode: ViewMode?
+    @FocusedBinding(\.viewMode)
+    private var focusedViewMode: ViewMode?
 
     ///
     /// The `JournalStore` of the focused window, used to enable/disable and trigger commands such as Reload.
     ///
-    @FocusedValue(\.journalStore) private var focusedStore: JournalStore?
+    @FocusedValue(\.journalStore)
+    private var focusedStore: JournalStore?
 
     ///
     /// Binding to the focused window's sidebar visibility. Drives the View ▸ Show/Hide Sidebar menu item.
     ///
-    @FocusedBinding(\.columnVisibility) private var focusedColumnVisibility: NavigationSplitViewVisibility?
+    @FocusedBinding(\.columnVisibility)
+    private var focusedColumnVisibility: NavigationSplitViewVisibility?
 
     ///
     /// Binding to whether the focused window's inspector pane is presented. Drives the View ▸ Show/Hide Inspector menu item.
     ///
-    @FocusedBinding(\.inspectorPresented) private var focusedInspectorPresented: Bool?
+    @FocusedBinding(\.inspectorPresented)
+    private var focusedInspectorPresented: Bool?
 
     var body: some Scene {
         WindowGroup {
@@ -57,13 +62,29 @@ struct RiverviewApp: App {
                 .disabled(focusedStore?.directory == nil)
             }
 
+            CommandGroup(after: .textEditing) {
+                Divider()
+                Button("Next Match") {
+                    NotificationCenter.default.post(name: .riverviewNextMatch, object: nil)
+                }
+                .keyboardShortcut("g")
+                .disabled(focusedStore?.matchingEntries.isEmpty ?? true)
+
+                Button("Previous Match") {
+                    NotificationCenter.default.post(name: .riverviewPreviousMatch, object: nil)
+                }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+                .disabled(focusedStore?.matchingEntries.isEmpty ?? true)
+            }
+
             CommandGroup(before: .toolbar) {
                 Picker("View Mode", selection: Binding(
                     get: { focusedViewMode ?? .outline },
                     set: { focusedViewMode = $0 }
                 )) {
                     ForEach(ViewMode.allCases) { value in
-                        Label(value.label, systemImage: value.systemImage).tag(value)
+                        Label(value.label, systemImage: value.systemImage)
+                            .tag(value)
                             .keyboardShortcut(value.keyboardShortcut, modifiers: .command)
                     }
                 }

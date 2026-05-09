@@ -48,9 +48,15 @@ struct TimelineActivityBar: View {
     let isSelected: Bool
 
     ///
+    /// `true` when at least one of the activity's entries is in `JournalStore.matchIDs`. Drives an outer yellow stroke that mirrors the inline match highlight used by `MessageRow` and the table cells.
+    ///
+    let isMatch: Bool
+
+    ///
     /// Two-way binding driving the popover. The parent stores at most one popover ID at a time; this binding reflects "is the parent's `popoverID` equal to this activity's `id`?".
     ///
-    @Binding var isPopoverPresented: Bool
+    @Binding
+    var isPopoverPresented: Bool
 
     ///
     /// Closure invoked when the user clicks the bar (or the trailing external label, since they share a single `Button`). The parent uses this to update `selection` and toggle the popover.
@@ -81,7 +87,6 @@ struct TimelineActivityBar: View {
         }
     }
 
-    @ViewBuilder
     private var barShape: some View {
         Group {
             if externalLabelWidth == nil {
@@ -100,8 +105,30 @@ struct TimelineActivityBar: View {
         .background(barColor.opacity(isHighlighted ? 0.85 : 0.3), in: RoundedRectangle(cornerRadius: 4))
         .overlay {
             RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                .strokeBorder(matchStrokeColor, lineWidth: matchStrokeWidth)
         }
+    }
+
+    ///
+    /// Stroke color used by the bar's overlay rectangle. Selected bars take precedence (accent), then matches (yellow), otherwise the stroke is invisible.
+    ///
+    private var matchStrokeColor: Color {
+        if isSelected {
+            return .accentColor
+        }
+
+        if isMatch {
+            return .yellow
+        }
+
+        return .clear
+    }
+
+    ///
+    /// Stroke width tied to `matchStrokeColor`. A slightly thicker selection stroke and a thinner match stroke share the same `RoundedRectangle` overlay so we don't accumulate two borders on a bar that is both selected and matched.
+    ///
+    private var matchStrokeWidth: CGFloat {
+        isSelected ? 2 : (isMatch ? 1.5 : 0)
     }
 
     private var barColor: Color {

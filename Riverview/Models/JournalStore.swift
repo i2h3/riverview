@@ -39,9 +39,9 @@ final class JournalStore {
     var levelFilter: Set<Level> = [.debug, .info, .error]
 
     ///
-    /// Free-text label/argument query entered in `FilterSidebar`. Applied by `filteredEntries` (case-insensitive substring match).
+    /// Mail.app-style filter rules edited in `FilterSidebar`. Combined with logical AND by `matchingEntries`. Seeded with one default placeholder rule (`.any` / `.contains` / `""`) so the sidebar always presents a search-ready row; `activeFilterRules` skips empty-value rules, so the placeholder doesn't itself filter anything until the user types into it. The Filters section's "−" button is wired to keep this invariant — removing the only remaining rule replaces it with a fresh placeholder rather than leaving the array empty.
     ///
-    var labelQuery: String = ""
+    var filterRules: [FilterRule] = [FilterRule()]
 
     private var nextID: Int = 0
     private var watcher: JournalWatcher?
@@ -49,42 +49,53 @@ final class JournalStore {
     private var securityScopedURL: URL?
 
     ///
-    /// Entries that match `labelQuery` (or all entries when the query is empty). The level filter is *not* applied here — views render filtered-out levels at lower opacity instead so structural context is preserved.
+    /// Filter rules that actually have a non-empty value. `JournalStore` skips empty rules so a freshly added rule does not begin highlighting "everything" or "nothing" while the user is typing.
     ///
-    var filteredEntries: [LoadedMessage] {
-        let query = labelQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    var activeFilterRules: [FilterRule] {
+        filterRules.filter { !$0.isEmpty }
+    }
+
+    ///
+    /// Entries that satisfy every active filter rule, in chronological order. Used by `ContentView` to drive Next/Previous match navigation and by `FilterSidebar` for the match counter. When no active rules exist the list is empty — there is nothing to navigate between when nothing is filtered.
+    ///
+    var matchingEntries: [LoadedMessage] {
+        let rules = activeFilterRules
+
+        guard !rules.isEmpty else {
+            return []
+        }
 
         return entries.filter { entry in
-            if query.isEmpty {
-                return true
-            }
-
-            if entry.message.label.lowercased().contains(query) {
-                return true
-            }
-
-            return entry.message.arguments.contains { _, value in
-                guard let value else {
-                    return false
-                }
-
-                return value.lowercased().contains(query)
-            }
+            rules.allSatisfy { $0.matches(entry) }
         }
     }
 
     ///
-    /// Entries that pass *both* the label query and the level filter. Used by `FilterSidebar` to display the "matched / total" status.
+    /// Identifiers of entries in `matchingEntries`, exposed as a `Set` for O(1) "is this row a match?" lookups inside the row views.
     ///
-    var highlightedEntries: [LoadedMessage] {
-        filteredEntries.filter { levelFilter.contains($0.message.level) }
+    var matchIDs: Set<LoadedMessage.ID> {
+        Set(matchingEntries.map(\.id))
     }
 
     ///
-    /// `filteredEntries` arranged into a tree by activity path, ready for `MessageOutlineView` to display via `OutlineGroup`.
+    /// Entries that pass the level filter *and* every active filter rule. Used by `FilterSidebar` to display the "highlighted / total" status. With no rules and every level enabled, this equals `entries`.
+    ///
+    var highlightedEntries: [LoadedMessage] {
+        let rules = activeFilterRules
+
+        return entries.filter { entry in
+            guard levelFilter.contains(entry.message.level) else {
+                return false
+            }
+            return rules.allSatisfy { $0.matches(entry) }
+        }
+    }
+
+    ///
+    /// `entries` arranged into a tree by activity path, ready for `MessageOutlineView` to display via `OutlineGroup`. The tree always reflects the full journal — filter rules highlight rather than reduce, so the surrounding activity context stays visible.
     ///
     var activityRoots: [ActivityNode] {
-        ActivityNode.tree(from: filteredEntries)
+        ActivityNode.tree(from: entries)
     }
 
     ///
@@ -119,7 +130,9 @@ final class JournalStore {
     /// Re-read the current directory from scratch. Backs the Reload menu item and toolbar button.
     ///
     func reload() {
-        guard directory != nil else { return }
+        guard directory != nil else {
+            return
+        }
         stopWatching()
         entries.removeAll()
         seenKeys.removeAll()
@@ -148,7 +161,9 @@ final class JournalStore {
     }
 
     private func loadSnapshot() {
-        guard let directory else { return }
+        guard let directory else {
+            return
+        }
 
         let configuration = FileJournalConfiguration(directory: directory)
         let reader = FileJournalReader(configuration: configuration)
@@ -165,7 +180,9 @@ final class JournalStore {
     }
 
     private func startWatching() {
-        guard let directory else { return }
+        guard let directory else {
+            return
+        }
 
         let activeURL = directory.appendingPathComponent("log.jsonl")
         let initialOffset: UInt64 = if let attrs = try? FileManager.default.attributesOfItem(atPath: activeURL.path),
@@ -198,7 +215,9 @@ final class JournalStore {
     }
 
     private func handleRotation() {
-        guard let directory else { return }
+        guard let directory else {
+            return
+        }
 
         let configuration = FileJournalConfiguration(directory: directory)
         let reader = FileJournalReader(configuration: configuration)

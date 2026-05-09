@@ -6,13 +6,13 @@ import Rivers
 import SwiftUI
 
 ///
-/// Tabular presentation of journal messages. Used both as the standalone flat view mode and as the lower half of the timeline mode (where `ContentView` filters its `entries` by the timeline's selected range).
+/// Tabular presentation of journal messages. Used both as the standalone flat view mode and as the lower half of the timeline mode (where `ContentView` hands in a range-filtered subset).
 ///
-/// The table always renders rows in chronological order, regardless of column. User-driven sorting is intentionally disabled here — the journal's natural axis is time, and every other view in the app respects that, so allowing the user to break that invariant in just this one place would be confusing.
+/// The table always renders rows in chronological order, regardless of column. User-driven sorting is intentionally disabled here — the journal's natural axis is time, and every other view in the app respects that, so allowing the user to break that invariant in just this one place would be confusing. Matched cells in the Label and Arguments columns get inline yellow substring highlights from `highlightedText(_:with:in:)`, and a trailing `MatchScrollIndicator` overlays tick marks at the chronological positions of matches.
 ///
 struct MessageTableView: View {
     ///
-    /// Messages to display. Already filtered by the caller (`store.filteredEntries` for the flat mode, or `rangeFilteredEntries` for the timeline mode's lower table).
+    /// Messages to display. Already filtered by the caller (`store.entries` for the flat mode, or `rangeFilteredEntries` for the timeline mode's lower table).
     ///
     let entries: [LoadedMessage]
 
@@ -22,44 +22,81 @@ struct MessageTableView: View {
     let highlightedLevels: Set<Level>
 
     ///
+    /// Active filter rules forwarded to `highlightedText(_:with:in:)` for the label and arguments columns.
+    ///
+    let rules: [FilterRule]
+
+    ///
+    /// Identifiers of entries currently matching every active rule. Drives the per-row visual cues alongside inline substring highlights.
+    ///
+    let matchIDs: Set<LoadedMessage.ID>
+
+    ///
+    /// Chronological indices (within this view's `entries`) of the matching rows. Used by the trailing `MatchScrollIndicator` to position tick marks.
+    ///
+    let matchPositions: [Int]
+
+    ///
+    /// Position of the currently selected match inside `matchPositions`, or `nil` when selection isn't on a match. Drives the brighter "you are here" tick.
+    ///
+    let selectedMatchPosition: Int?
+
+    ///
     /// The currently selected entry, shared with the inspector and the other view modes.
     ///
-    @Binding var selection: LoadedMessage.ID?
+    @Binding
+    var selection: LoadedMessage.ID?
 
     var body: some View {
-        Table(chronological, selection: $selection) {
-            TableColumn("Time") { entry in
-                Text(formatted(entry.message.date))
-                    .font(.system(.caption, design: .monospaced))
-                    .opacity(opacity(for: entry))
-            }
-            .width(min: 90, ideal: 110)
+        ScrollViewReader { proxy in
+            Table(chronological, selection: $selection) {
+                TableColumn("Time") { entry in
+                    Text(formatted(entry.message.date))
+                        .font(.system(.caption, design: .monospaced))
+                        .opacity(opacity(for: entry))
+                }
+                .width(min: 90, ideal: 110)
 
-            TableColumn("Level") { entry in
-                LevelBadge(level: entry.message.level)
-                    .opacity(opacity(for: entry))
-            }
-            .width(min: 60, ideal: 70)
+                TableColumn("Level") { entry in
+                    LevelBadge(level: entry.message.level)
+                        .opacity(opacity(for: entry))
+                }
+                .width(min: 60, ideal: 70)
 
-            TableColumn("Activity") { entry in
-                Text(entry.message.activity.description)
-                    .font(.system(.caption, design: .monospaced))
-                    .opacity(opacity(for: entry))
-            }
-            .width(min: 60, ideal: 90)
+                TableColumn("Activity") { entry in
+                    Text(entry.message.activity.description)
+                        .font(.system(.caption, design: .monospaced))
+                        .opacity(opacity(for: entry))
+                }
+                .width(min: 60, ideal: 90)
 
-            TableColumn("Label") { entry in
-                Text(entry.message.label)
-                    .opacity(opacity(for: entry))
-            }
-            .width(min: 120, ideal: 240)
+                TableColumn("Label") { entry in
+                    Text(highlightedText(entry.message.label, with: rules, in: .label))
+                        .fontWeight(matchIDs.contains(entry.id) ? .semibold : .regular)
+                        .opacity(opacity(for: entry))
+                }
+                .width(min: 120, ideal: 240)
 
-            TableColumn("Arguments") { entry in
-                Text(argumentsPreview(entry.message.arguments))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .opacity(opacity(for: entry))
+                TableColumn("Arguments") { entry in
+                    Text(highlightedText(argumentsPreview(entry.message.arguments), with: rules, in: .argumentValue))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .opacity(opacity(for: entry))
+                }
+            }
+            .overlay(alignment: .trailing) {
+                MatchScrollIndicator(
+                    totalCount: entries.count,
+                    matchPositions: matchPositions,
+                    selectedPosition: selectedMatchPosition
+                )
+                .padding(.trailing, 2)
+            }
+            .onChange(of: selection) { _, new in
+                if let new {
+                    withAnimation { proxy.scrollTo(new, anchor: .center) }
+                }
             }
         }
     }

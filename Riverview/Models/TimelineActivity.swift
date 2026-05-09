@@ -45,12 +45,16 @@ struct TimelineActivity: Identifiable {
     ///
     let primaryEntry: LoadedMessage
 
-    var id: String { activity.description }
+    var id: String {
+        activity.description
+    }
 
     ///
     /// Total duration of the activity in seconds. Used by `TimelineView.width(for:pps:)` to size the bar.
     ///
-    var duration: TimeInterval { end.timeIntervalSince(start) }
+    var duration: TimeInterval {
+        end.timeIntervalSince(start)
+    }
 
     ///
     /// Group `entries` by activity, choose a primary entry per group, and return one `TimelineActivity` per distinct `ActivityID` sorted by start time. Called by `ContentView` whenever the timeline mode renders.

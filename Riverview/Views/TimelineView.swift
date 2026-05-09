@@ -14,7 +14,7 @@ import SwiftUI
 ///
 struct TimelineView: View {
     ///
-    /// All activities to display, already aggregated and sorted by start time. Comes from `TimelineActivity.aggregate(from: store.filteredEntries)` in `ContentView`.
+    /// All activities to display, already aggregated and sorted by start time. Comes from `TimelineActivity.aggregate(from: store.entries)` in `ContentView`.
     ///
     let activities: [TimelineActivity]
 
@@ -24,29 +24,39 @@ struct TimelineView: View {
     let highlightedLevels: Set<Level>
 
     ///
+    /// Identifiers of entries in `JournalStore.matchIDs`. Activities whose entries intersect this set get a yellow match stroke from `TimelineActivityBar`.
+    ///
+    let matchIDs: Set<LoadedMessage.ID>
+
+    ///
     /// The currently selected entry. Shared across outline, flat, timeline, and the inspector pane so selection follows the user across view modes.
     ///
-    @Binding var selection: LoadedMessage.ID?
+    @Binding
+    var selection: LoadedMessage.ID?
 
     ///
     /// The user's current time-range selection within this timeline, or `nil` if none. `ContentView` filters the lower table by this range when the user is in timeline mode.
     ///
-    @Binding var selectedRange: ClosedRange<Date>?
+    @Binding
+    var selectedRange: ClosedRange<Date>?
 
     ///
     /// User-controlled zoom multiplier. `1.0` means "fit the full activity span to the viewport"; pinching multiplies it. The actual `pointsPerSecond` is derived from this each render, so resizing the window or new activities arriving rescales automatically while preserving the user's relative zoom.
     ///
-    @State private var zoomFactor: CGFloat = 1.0
+    @State
+    private var zoomFactor: CGFloat = 1.0
 
     ///
     /// Snapshot of `zoomFactor` taken at the start of a pinch gesture. The gesture's reported `magnification` is multiplied against this to produce the new factor; cleared when the gesture ends.
     ///
-    @State private var pinchBaselineFactor: CGFloat?
+    @State
+    private var pinchBaselineFactor: CGFloat?
 
     ///
     /// `id` of the activity whose popover is currently shown, or `nil`. At most one popover is open at a time; setting this to a new ID closes any other popover by virtue of the `Binding` plumbing in `bar(for:index:bounds:pps:)`.
     ///
-    @State private var popoverID: TimelineActivity.ID?
+    @State
+    private var popoverID: TimelineActivity.ID?
 
     private static let rowHeight: CGFloat = 22
     private static let rowSpacing: CGFloat = 3
@@ -83,6 +93,14 @@ struct TimelineView: View {
                     }
                 }
                 .simultaneousGesture(magnifyGesture)
+                .overlay(alignment: .trailing) {
+                    MatchScrollIndicator(
+                        totalCount: activities.count,
+                        matchPositions: matchActivityPositions,
+                        selectedPosition: selectedMatchActivityPosition
+                    )
+                    .padding(.trailing, 2)
+                }
             }
         } else {
             ContentUnavailableView("Nothing on the timeline", systemImage: "chart.bar.xaxis")
@@ -173,6 +191,7 @@ struct TimelineView: View {
             externalLabelSpacing: Self.externalLabelSpacing,
             isHighlighted: highlightedLevels.contains(activity.level),
             isSelected: isSelected(activity),
+            isMatch: isMatch(activity),
             isPopoverPresented: Binding(
                 get: { popoverID == activity.id },
                 set: { isShown in
@@ -283,7 +302,9 @@ struct TimelineView: View {
     private func pointsPerSecond(viewportWidth: CGFloat, bounds: ClosedRange<Date>) -> CGFloat {
         let span = bounds.upperBound.timeIntervalSince(bounds.lowerBound)
 
-        guard span > 0, viewportWidth > 0 else { return 60 }
+        guard span > 0, viewportWidth > 0 else {
+            return 60
+        }
 
         let usable = max(1, viewportWidth - Self.horizontalPadding * 2)
         let basePPS = usable / CGFloat(span)
@@ -318,12 +339,16 @@ struct TimelineView: View {
     }
 
     private var globalBounds: ClosedRange<Date>? {
-        guard !activities.isEmpty else { return nil }
+        guard !activities.isEmpty else {
+            return nil
+        }
 
         let starts = activities.map(\.start)
         let ends = activities.map(\.end)
 
-        guard let first = starts.min(), let last = ends.max() else { return nil }
+        guard let first = starts.min(), let last = ends.max() else {
+            return nil
+        }
 
         let safeEnd = last > first ? last : first.addingTimeInterval(1)
         return first ... safeEnd
@@ -353,8 +378,47 @@ struct TimelineView: View {
     // MARK: - Selection helpers
 
     private func isSelected(_ activity: TimelineActivity) -> Bool {
-        guard let selection else { return false }
+        guard let selection else {
+            return false
+        }
         return activity.entries.contains { $0.id == selection }
+    }
+
+    ///
+    /// `true` when at least one of the activity's entries is currently in `JournalStore.matchIDs`. Drives the yellow stroke on the activity bar.
+    ///
+    private func isMatch(_ activity: TimelineActivity) -> Bool {
+        guard !matchIDs.isEmpty else {
+            return false
+        }
+        return activity.entries.contains { matchIDs.contains($0.id) }
+    }
+
+    ///
+    /// Indices (within `activities`) of activities that contain at least one matching entry. Drives the trailing match indicator's tick marks.
+    ///
+    private var matchActivityPositions: [Int] {
+        guard !matchIDs.isEmpty else {
+            return []
+        }
+
+        return activities.enumerated().compactMap { index, activity in
+            activity.entries.contains { matchIDs.contains($0.id) } ? index : nil
+        }
+    }
+
+    ///
+    /// Index inside `matchActivityPositions` of the currently selected match, or `nil` if the selection isn't on a matching activity.
+    ///
+    private var selectedMatchActivityPosition: Int? {
+        guard let selection else {
+            return nil
+        }
+
+        return activities.enumerated()
+            .first { _, activity in
+                activity.entries.contains { $0.id == selection } && activity.entries.contains { matchIDs.contains($0.id) }
+            }?.offset
     }
 
     // MARK: - Ruler labelling
@@ -364,7 +428,7 @@ struct TimelineView: View {
         let minTimeGap = TimeInterval(minPixelGap / pointsPerSecond)
         let candidates: [TimeInterval] = [
             0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5,
-            1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600
+            1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600,
         ]
         return candidates.first { $0 >= minTimeGap } ?? max(minTimeGap, 1)
     }

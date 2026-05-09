@@ -9,7 +9,7 @@ import Rivers
 ///
 /// Equality and hashing are based solely on `id`. Two loaded messages with the same id are considered identical regardless of their `message` payload, which is what SwiftUI selection bindings expect.
 ///
-struct LoadedMessage: Identifiable, Hashable, Sendable {
+struct LoadedMessage: Identifiable, Hashable {
     ///
     /// Stable identifier within a single `JournalStore` lifetime. Reassigned on `JournalStore.reload()` and `JournalStore.open(directory:)`.
     ///
